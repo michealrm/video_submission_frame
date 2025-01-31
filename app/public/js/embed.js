@@ -123,12 +123,12 @@ class VideoUploader {
         this.videoPreview.style.display = 'block';
 
         // Update info display
-        this.videoInfo.innerHTML = `
-            File: ${file.name}<br>
-            Size: ${(file.size / (1024 * 1024)).toFixed(2)} MB<br>
-            Duration: ${this.formatTime(duration)}
-        `;
-        this.videoInfo.style.display = 'block';
+        // this.videoInfo.innerHTML = `
+        //     File: ${file.name}<br>
+        //     Size: ${(file.size / (1024 * 1024)).toFixed(2)} MB<br>
+        //     Duration: ${this.formatTime(duration)}
+        // `;
+        // this.videoInfo.style.display = 'block';
 
         // Show controls, hide upload button
         this.controlButtons.style.display = 'flex';
