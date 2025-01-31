@@ -38,7 +38,7 @@ const DEFAULT_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'https://lionfish-app-qsoao.ondigitalocean.app',
     'https://form.jotform.com',
-    'https://jotform.com'
+    'https://www.jotform.com'
 ];
 
 // Get allowed origins from env or use defaults
