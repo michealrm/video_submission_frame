@@ -7,7 +7,7 @@ services:
     dockerfile_path: Dockerfile
     instance_count: 1
     instance_size_slug: basic-xxs
-    internal_ports: [3000]
+    http_port: 3000
     health_check:
       initial_delay_seconds: 30
       period_seconds: 10
