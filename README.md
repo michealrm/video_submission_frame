@@ -1,16 +1,6 @@
 # Video Submission Frame
 
-A lightweight, embeddable video upload module with built-in duration validation. Designed to work seamlessly with form builders like JotForm or as a standalone component.
-
-## Features
-
-- Video duration validation
-- Support for mobile video formats
-- Progress indication
-- iframe embedding support
-- Cross-origin support
-- Client and server-side validation
-- Supports MP4, MOV, AVI, 3GPP, and WebM formats
+An embeddable video upload module to validate recording duration then upload to object storage. Designed to work with form builders like JotForm as an iframe. Supports MP4, MOV, AVI, 3GPP, and WebM formats.
 
 ## Installation
 

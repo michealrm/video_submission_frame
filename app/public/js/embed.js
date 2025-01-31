@@ -19,6 +19,7 @@ class VideoUploader {
         this.fileInputClickHandler = () => this.fileInput.click();
         this.setupEventListeners();
         console.log('VideoUploader initialized with max duration:', this.maxDurationFormatted);
+        this.currentXHR = null; // Add this new property
     }
 
     formatTime(seconds) {
@@ -138,6 +139,18 @@ class VideoUploader {
     }
 
     async resetUpload() {
+        // Cancel any ongoing upload first
+        if (this.currentXHR) {
+            console.log('Aborting current upload');
+            this.currentXHR.abort();
+            this.currentXHR = null;
+            
+            // Show cancellation status immediately
+            this.showStatus('Upload canceled');
+            this.progressBar.style.display = 'none';
+        }
+
+        // Then handle the deletion if needed
         if (this.currentKey) {
             try {
                 const response = await fetch(`/embed/upload/${encodeURIComponent(this.currentKey)}`, {
@@ -150,31 +163,24 @@ class VideoUploader {
                 }
             } catch (error) {
                 console.error('Failed to delete file:', error);
-                this.showError('Failed to delete previous file');
-                return;
+                // Don't return here, continue with reset
             }
         }
 
-        // Reset file input
+        // Reset UI immediately
         this.fileInput.value = '';
         this.currentFile = null;
         this.currentKey = null;
-
-        // Show placeholder, hide actual video
         document.getElementById('videoPlaceholder').style.display = 'flex';
         this.videoPreview.style.display = 'none';
         this.videoPreview.src = '';
-
-        // Reset UI
-        this.uploadBtn.classList.remove('reupload-btn');
-        this.uploadBtn.classList.remove('cancel-upload-btn');
+        this.uploadBtn.classList.remove('reupload-btn', 'cancel-upload-btn');
         this.uploadBtn.classList.add('upload-btn');
+        this.uploadBtn.classList.remove('hidden');
         this.uploadBtn.textContent = `Upload Video (Max ${this.maxDurationFormatted})`;
         this.videoPreview.src = '';
-        this.videoPreview.style.display = 'none';
         this.videoInfo.style.display = 'none';
         this.controlButtons.style.display = 'none';
-        this.uploadBtn.classList.remove('hidden');
         this.progressBar.style.display = 'none';
         this.validationMessage.textContent = '';
         this.progressBar.value = 0;
@@ -183,17 +189,13 @@ class VideoUploader {
             this.alertBox.style.display = 'none';
         }
 
-        // Don't clear status message immediately if it's showing
-        setTimeout(() => {
-            if (this.statusMessage.style.display === 'block') {
-                this.statusMessage.style.display = 'none';
-                this.statusMessage.textContent = '';
-            }
-        }, 5000);
-
         this.notifyParent({
             type: 'cancelled'
         });
+
+        // Add back the file input click handler
+        this.uploadBtn.removeEventListener('click', this.fileInputClickHandler);
+        this.uploadBtn.addEventListener('click', this.fileInputClickHandler);
     }
 
     showStatus(message, persistent = false) {
@@ -242,7 +244,8 @@ class VideoUploader {
         this.progressBar.style.display = 'block';
         this.progressBar.value = 0;
         this.confirmBtn.disabled = true;
-        this.cancelBtn.disabled = true;
+        // Keep cancel button enabled during upload
+        // this.cancelBtn.disabled = true;
 
         try {
             // Get signed URL with explicit content type header
@@ -274,17 +277,25 @@ class VideoUploader {
             this.showCancelState();
 
         } catch (error) {
+            if (error.message === 'Upload canceled') {
+                this.showStatus('Upload canceled');
+                return;
+            }
             console.error('Upload error:', error);
             this.showError(`Upload failed: ${error.message}`);
         } finally {
             this.confirmBtn.disabled = false;
-            this.cancelBtn.disabled = false;
+            if (this.currentXHR) {
+                this.currentXHR = null;
+            }
         }
     }
 
     async uploadToS3(signedUrl, file) {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
+            this.currentXHR = xhr; // Store the XHR instance
+
             xhr.upload.addEventListener('progress', (event) => {
                 if (event.lengthComputable) {
                     const percentage = Math.round((event.loaded / event.total) * 100);
@@ -296,6 +307,7 @@ class VideoUploader {
             });
 
             xhr.addEventListener('load', () => {
+                this.currentXHR = null; // Clear the XHR instance
                 if (xhr.status === 200) {
                     resolve();
                 } else {
@@ -304,7 +316,13 @@ class VideoUploader {
             });
 
             xhr.addEventListener('error', () => {
+                this.currentXHR = null; // Clear the XHR instance
                 reject(new Error('Upload failed'));
+            });
+
+            xhr.addEventListener('abort', () => {
+                this.currentXHR = null; // Clear the XHR instance
+                reject(new Error('Upload canceled'));
             });
 
             xhr.open('PUT', signedUrl);
