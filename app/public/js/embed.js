@@ -10,6 +10,7 @@ class VideoUploader {
         this.cancelBtn = document.getElementById('cancelBtn');
         this.confirmBtn = document.getElementById('confirmBtn');
         this.statusMessage = document.getElementById('statusMessage');
+        this.alertBox = document.getElementById('alertBox');
         
         this.currentFile = null;
         this.currentKey = null;
@@ -23,7 +24,13 @@ class VideoUploader {
     formatTime(seconds) {
         const minutes = Math.floor(seconds / 60);
         const remainingSeconds = Math.floor(seconds % 60);
-        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        
+        if (remainingSeconds === 0) {
+            return `${minutes} minutes`;
+        } else {
+            return `${minutes} minutes ${remainingSeconds} seconds`;
+        }
+        // return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
     }
 
     setupEventListeners() {
@@ -31,7 +38,7 @@ class VideoUploader {
         this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
         this.cancelBtn.addEventListener('click', () => this.resetUpload());
         this.confirmBtn.addEventListener('click', () => this.uploadVideo(this.currentFile));
-        this.uploadBtn.textContent = `Select Video (Max ${this.maxDurationFormatted})`;
+        this.uploadBtn.textContent = `Upload Video (Max ${this.maxDurationFormatted})`;
     }
 
     async handleFileSelect(e) {
@@ -69,7 +76,7 @@ class VideoUploader {
         } finally {
             // Reset button state
             this.uploadBtn.disabled = false;
-            this.uploadBtn.textContent = `Select Video (Max ${this.maxDurationFormatted})`;
+            this.uploadBtn.textContent = `Upload Video (Max ${this.maxDurationFormatted})`;
         }
     }
 
@@ -162,7 +169,7 @@ class VideoUploader {
         this.uploadBtn.classList.remove('reupload-btn');
         this.uploadBtn.classList.remove('cancel-upload-btn');
         this.uploadBtn.classList.add('upload-btn');
-        this.uploadBtn.textContent = `Select Video (Max ${this.maxDurationFormatted})`;
+        this.uploadBtn.textContent = `Upload Video (Max ${this.maxDurationFormatted})`;
         this.videoPreview.src = '';
         this.videoPreview.style.display = 'none';
         this.videoInfo.style.display = 'none';
@@ -171,6 +178,10 @@ class VideoUploader {
         this.progressBar.style.display = 'none';
         this.validationMessage.textContent = '';
         this.progressBar.value = 0;
+
+        if (this.alertBox) {
+            this.alertBox.style.display = 'none';
+        }
 
         // Don't clear status message immediately if it's showing
         setTimeout(() => {
@@ -187,10 +198,10 @@ class VideoUploader {
 
     showStatus(message, persistent = false) {
         console.log('Showing status message:', message);
-        this.statusMessage.textContent = message;
+        this.statusMessage.innerHTML = message; // Changed from textContent to innerHTML
         this.statusMessage.style.display = 'block';
         
-        if (message === 'Upload completed successfully!') {
+        if (message.includes('Upload completed successfully!')) {
             this.statusMessage.classList.add('success');
         } else {
             this.statusMessage.classList.remove('success');
@@ -208,9 +219,9 @@ class VideoUploader {
 
         // Set new timeout for auto-hide
         this._statusTimeout = setTimeout(() => {
-            if (this.statusMessage.textContent === message) {
+            if (this.statusMessage.innerHTML === message) {
                 this.statusMessage.style.display = 'none';
-                this.statusMessage.textContent = '';
+                this.statusMessage.innerHTML = '';
             }
         }, 5000);
     }
@@ -226,7 +237,7 @@ class VideoUploader {
             size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
             type: file.type
         });
-        this.showStatus('Upload initiated, please wait...');
+        this.showStatus('Upload initiated, please wait...', true);
 
         const formData = new FormData();
         formData.append('video', file);
@@ -259,7 +270,8 @@ class VideoUploader {
             
             if (result.success) {
                 this.currentKey = result.key;
-                return await this.monitorUploadProgress(result.uploadId);
+                console.log('Setting current key:', this.currentKey); // Add debug log
+                return await this.monitorUploadProgress(result.uploadId, this.currentKey);
             } else {
                 throw new Error(result.error || 'Upload failed');
             }
@@ -272,9 +284,11 @@ class VideoUploader {
         }
     }
 
-    async monitorUploadProgress(uploadId, retryCount = 0) {
-        const MAX_RETRIES = 3;
-        const RETRY_DELAY = 1000;
+    async monitorUploadProgress(uploadId, key, retryCount = 0) {
+        // Create closure with class instance
+        const self = this;
+        const currentKey = this.currentKey;
+        console.log('Starting progress monitoring with key:', currentKey);
         
         return new Promise((resolve, reject) => {
             let eventSource;
@@ -304,20 +318,20 @@ class VideoUploader {
                     lastProgressTime = Date.now();
                 };
 
-                eventSource.onmessage = (event) => {
+                eventSource.onmessage = function(event) {
                     try {
                         const progress = JSON.parse(event.data);
                         console.log('Progress event received:', progress);
                         hasReceivedProgress = true;
                         lastProgressTime = Date.now();
                         
-                        this.updateProgress(progress);
+                        self.updateProgress(progress);
 
                         if (progress.phase === 'uploading' && progress.percentage === 100) {
-                            console.log('Upload complete');
+                            console.log('Upload complete with key:', currentKey);
                             cleanup();
-                            this.showStatus('Upload completed successfully!');
-                            this.showCancelState();
+                            self.showStatus(`Upload completed successfully! Your Video Submission ID is: <strong><ul>${currentKey}</ul> <button class="copy-id-btn" onclick="navigator.clipboard.writeText('${key}')">COPY ID</button></strong>`, true);
+                            self.showCancelState();
                             resolve();
                         }
                     } catch (error) {
@@ -347,12 +361,12 @@ class VideoUploader {
                 if (retryCount < MAX_RETRIES) {
                     console.log(`Retrying connection (${retryCount + 1}/${MAX_RETRIES})...`);
                     await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-                    this.monitorUploadProgress(uploadId, retryCount + 1)
+                    self.monitorUploadProgress(uploadId, retryCount + 1)
                         .then(resolve)
                         .catch(reject);
                 } else {
                     console.error('Max retries reached');
-                    this.showError('Upload failed: Connection lost');
+                    self.showError('Upload failed: Connection lost');
                     reject(error);
                 }
             };
@@ -389,8 +403,8 @@ class VideoUploader {
         // Show placeholder
         // document.getElementById('videoPlaceholder').style.display = 'flex';
         
-        // Show persistent message
-        this.showStatus('Upload completed successfully!', true);
+        // Show persistent message with the provided key
+        // self.showStatus(`Upload completed successfully! Your Video Submission ID is: <strong><ul>${key}</ul> <button class="copy-id-btn" onclick="navigator.clipboard.writeText('${key}')">COPY ID</button></strong>`, true);
 
         // Update upload button to be a cancel button
         this.uploadBtn.classList.remove('hidden');
@@ -403,10 +417,10 @@ class VideoUploader {
 
         // Make the “Start Over” button not open file dialog
         this.uploadBtn.onclick = () => {
-            // Reset everything, let user manually click “Select Video” later if desired
+            // Reset everything, let user manually click “Upload Video” later if desired
             this.resetUpload();
             this.uploadBtn.addEventListener('click', this.fileInputClickHandler);
-            this.uploadBtn.textContent = `Select Video (Max ${this.maxDurationFormatted})`;
+            this.uploadBtn.textContent = `Upload Video (Max ${this.maxDurationFormatted})`;
         };
     }
 

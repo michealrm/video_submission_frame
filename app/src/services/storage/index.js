@@ -38,7 +38,7 @@ class StorageService extends EventEmitter {
         }
     }
 
-    async saveFile(file, uploadId) {
+    async saveFile(file, fileName, uploadId) {
         if (!file) throw new Error('No file provided');
 
         console.log('StorageService saving file:', {
@@ -48,7 +48,7 @@ class StorageService extends EventEmitter {
             uploadId
         });
 
-        const fileName = `${Date.now()}-${file.originalname}`;
+        
         try {
             const result = await this.adapter.uploadFile(file, fileName, uploadId);
             console.log('File saved successfully:', result);

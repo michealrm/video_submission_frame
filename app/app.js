@@ -25,7 +25,7 @@ app.use(cors({
         // Allow requests with no origin (mobile apps, curl)
         if (!origin) return callback(null, true);
         
-        const allowedOrigins = ['https://form.jotform.com', 'https://localhost:3000'];
+        const allowedOrigins = ['https://form.jotform.com', 'https://jotform.com', 'https://localhost:3000'];
         if (allowedOrigins.indexOf(origin) === -1) {
             return callback(new Error('CORS not allowed'));
         }

@@ -124,16 +124,19 @@ router.post('/upload', upload.single('video'), async (req, res) => {
         const uploadId = Date.now().toString();
         console.log('Starting upload with ID:', uploadId);
 
+        const fileName = `${uploadId}-${req.file.filename}`;
+        console.log('Generated file name (key):', fileName);
         // Send initial response right away
         res.json({ 
             uploadId,
             success: true,
-            file: req.file.filename
+            file: req.file.filename,
+            key: fileName
         });
 
         try {
             // Start actual upload after response sent
-            const result = await storage.saveFile(req.file, uploadId);
+            const result = await storage.saveFile(req.file, fileName, uploadId);
             console.log('Upload complete:', { uploadId, ...result });
         } catch (error) {
             console.error('Upload failed:', error);

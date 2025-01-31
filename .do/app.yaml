@@ -3,7 +3,7 @@ services:
   - name: web
     git:
       branch: main
-      repo_clone_url: https://github.com/michealrm/videosubmissionframe.git
+      repo_clone_url: https://github.com/michealrm/video_submission_frame.git
     dockerfile_path: Dockerfile
     instance_count: 1
     instance_size_slug: basic-xxs
