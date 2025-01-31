@@ -60,7 +60,8 @@ app.use(cors({
             return callback(new Error('CORS not allowed: ' + origin));
         }
         return callback(null, true);
-    }
+    },
+    methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
 }));
 
 // Serve static files

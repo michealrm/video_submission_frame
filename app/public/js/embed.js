@@ -141,10 +141,7 @@ class VideoUploader {
         if (this.currentKey) {
             try {
                 const response = await fetch(`/embed/upload/${encodeURIComponent(this.currentKey)}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Access-Control-Allow-Origin': '*'
-                    }
+                    method: 'DELETE'
                 });
                 const result = await response.json();
                 
@@ -260,9 +257,6 @@ class VideoUploader {
             console.log('Sending upload request...');
             const response = await fetch('/embed/upload', {
                 method: 'POST',
-                headers: {
-                    'Access-Control-Allow-Origin': '*'
-                },
                 body: formData
             });
 
