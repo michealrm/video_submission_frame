@@ -1,4 +1,4 @@
-name: video-submission-form
+name: video-submission-frame
 services:
   - name: web
     git:
