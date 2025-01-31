@@ -237,45 +237,42 @@ class VideoUploader {
             size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
             type: file.type
         });
-        this.showStatus('Upload initiated, please wait...', true);
 
-        const formData = new FormData();
-        formData.append('video', file);
-
+        this.showStatus('Preparing upload...', true);
         this.progressBar.style.display = 'block';
         this.progressBar.value = 0;
         this.confirmBtn.disabled = true;
         this.cancelBtn.disabled = true;
 
-        console.log('Starting upload for file:', {
-            name: file.name,
-            size: file.size,
-            type: file.type
-        });
-
         try {
-            console.log('Sending upload request...');
-            const response = await fetch('/embed/upload', {
+            // Get signed URL with explicit content type header
+            const response = await fetch('/embed/presign', {
                 method: 'POST',
                 credentials: 'include',
-                body: formData
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    filename: file.name,
+                    contentType: file.type
+                })
             });
 
             if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to get upload URL');
             }
 
-            const result = await response.json();
-            console.log('Upload result:', result);
-            
-            if (result.success) {
-                this.currentKey = result.key;
-                console.log('Setting current key:', this.currentKey); // Add debug log
-                return await this.monitorUploadProgress(result.uploadId, this.currentKey);
-            } else {
-                throw new Error(result.error || 'Upload failed');
-            }
+            const { url, key } = await response.json();
+            this.currentKey = key;
+
+            // Upload directly to S3
+            await this.uploadToS3(url, file);
+
+            this.showStatus(`Upload completed successfully! Your Video Submission ID is: <strong><ul>${key}</ul> <button class="copy-id-btn" onclick="navigator.clipboard.writeText('${key}')">COPY ID</button></strong>`, true);
+            this.showCancelState();
+
         } catch (error) {
             console.error('Upload error:', error);
             this.showError(`Upload failed: ${error.message}`);
@@ -283,6 +280,37 @@ class VideoUploader {
             this.confirmBtn.disabled = false;
             this.cancelBtn.disabled = false;
         }
+    }
+
+    async uploadToS3(signedUrl, file) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.upload.addEventListener('progress', (event) => {
+                if (event.lengthComputable) {
+                    const percentage = Math.round((event.loaded / event.total) * 100);
+                    this.updateProgress({
+                        phase: 'uploading',
+                        percentage: percentage
+                    });
+                }
+            });
+
+            xhr.addEventListener('load', () => {
+                if (xhr.status === 200) {
+                    resolve();
+                } else {
+                    reject(new Error(`Upload failed: ${xhr.status}`));
+                }
+            });
+
+            xhr.addEventListener('error', () => {
+                reject(new Error('Upload failed'));
+            });
+
+            xhr.open('PUT', signedUrl);
+            xhr.setRequestHeader('Content-Type', file.type);
+            xhr.send(file);
+        });
     }
 
     async monitorUploadProgress(uploadId, key, retryCount = 0) {
@@ -429,6 +457,11 @@ class VideoUploader {
         // Make the “Start Over” button not open file dialog
         this.uploadBtn.onclick = () => {
             // Reset everything, let user manually click “Upload Video” later if desired
+            this.statusMessage.style.display = 'none';
+            this.controlButtons.style.display = 'none';
+            this.progressBar.style.display = 'none';
+            this.videoPreview.style.display = 'none';
+            this.videoInfo.style.display = 'none';
             this.resetUpload();
             this.uploadBtn.addEventListener('click', this.fileInputClickHandler);
             this.uploadBtn.textContent = `Upload Video (Max ${this.maxDurationFormatted})`;

@@ -1,30 +1,12 @@
 const express = require('express');
-const multer = require('multer');
-const { getVideoDurationInSeconds } = require('get-video-duration');
 const { createStorage } = require('../services/storage');
 const storageConfig = require('../config/storage').storageConfig;
-const fs = require('fs').promises;
 const router = express.Router();
 
-const storage = createStorage(storageConfig);
+// Add body-parser middleware
+router.use(express.json());
 
-const upload = multer({ 
-    storage: multer.diskStorage({
-        filename: (_, file, cb) => {
-            cb(null, Date.now() + '-' + file.originalname);
-        }
-    }),
-    fileFilter: (req, file, cb) => {
-        if (storageConfig.allowedMimes.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error('Invalid video format'));
-        }
-    },
-    limits: {
-        fileSize: storageConfig.maxFileSize
-    }
-});
+const storage = createStorage(storageConfig);
 
 function formatTime(seconds) {
     const minutes = Math.floor(seconds / 60);
@@ -40,148 +22,37 @@ router.get('/', (req, res) => {
     });
 });
 
-router.get('/upload/progress/:id', (req, res) => {
-    const requestedId = req.params.id;
-    console.log('Progress connection requested for ID:', requestedId);
-
-    // Set proper headers for SSE with correct CORS
-    res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache, no-transform',
-        'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no',
-        'Access-Control-Allow-Origin': req.headers.origin || '*',
-        'Access-Control-Allow-Credentials': 'true'
-    });
-
-    // Keep connection alive
-    const keepAlive = setInterval(() => {
-        res.write(': keepalive\n\n');
-        if (res.flush) res.flush();
-    }, 2000);
-
-    // Send immediate response to establish connection
-    res.write('retry: 1000\n\n');
-    
-    const writeEvent = (data) => {
-        const event = `data: ${JSON.stringify(data)}\n\n`;
-        console.log('Writing SSE event:', event);
-        res.write(event);
-        if (res.flush) res.flush();
-    };
-
-    writeEvent({ phase: 'connected', percentage: 0 });
-
-    const progressHandler = (progress) => {
-        console.log('Progress event received:', { requestedId, progress });
-        
-        if (progress.uploadId === requestedId) {
-            try {
-                writeEvent(progress);
-                if (progress.phase === 'uploading' && progress.percentage === 100) {
-                    cleanup();
-                }
-            } catch (error) {
-                console.error('Error sending progress:', error);
-                cleanup();
-            }
-        }
-    };
-
-    const cleanup = () => {
-        clearInterval(keepAlive);
-        storage.removeListener('progress', progressHandler);
-        console.log('Cleaned up progress handler for ID:', requestedId);
-    };
-
-    storage.on('progress', progressHandler);
-    req.on('close', cleanup);
-    req.on('error', cleanup);
-});
-
-router.post('/upload', upload.single('video'), async (req, res) => {
-    // Add CORS headers
+router.post('/presign', async (req, res) => {
     res.header('Access-Control-Allow-Origin', req.headers.origin);
     res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type');
-    
-    console.log('Using storage type:', storage.config.type);
-    console.log('Upload request received:', {
-        headers: req.headers,
-        file: req.file ? {
-            filename: req.file.filename,
-            mimetype: req.file.mimetype,
-            size: `${(req.file.size / (1024 * 1024)).toFixed(2)} MB`
-        } : 'No file'
-    });
 
     try {
-        console.log('Processing upload request...');
-        if (!req.file) {
-            console.error('No file uploaded');
-            return res.status(400).json({ error: 'No video file uploaded' });
-        }
+        const { filename, contentType } = req.body;
 
-        console.log('Checking video duration...');
-        const duration = await getVideoDurationInSeconds(req.file.path);
-        console.log('Video duration:', duration);
-        
-        if (duration > storageConfig.maxDuration) {
-            await fs.unlink(req.file.path);
-            return res.status(400).json({
-                error: `Video duration (${formatTime(duration)}) exceeds maximum allowed (${formatTime(storageConfig.maxDuration)})`
+        if (!filename || !contentType) {
+            return res.status(400).json({ 
+                success: false,
+                error: 'Missing required fields: filename and contentType are required' 
             });
         }
 
-        console.log('Video validation passed, duration:', formatTime(duration));
-        const uploadId = Date.now().toString();
-        console.log('Starting upload with ID:', uploadId);
-
-        const fileName = `${uploadId}-${req.file.filename}`;
-        console.log('Generated file name (key):', fileName);
-        // Send initial response right away
-        res.json({ 
-            uploadId,
+        const uploadData = await storage.generateUploadUrl(filename, contentType);
+        res.json({
             success: true,
-            file: req.file.filename,
-            key: fileName
+            ...uploadData
         });
-
-        try {
-            // Start actual upload after response sent
-            const result = await storage.saveFile(req.file, fileName, uploadId);
-            console.log('Upload complete:', { uploadId, ...result });
-        } catch (error) {
-            console.error('Upload failed:', error);
-            // Cleanup on error
-            if (req.file) {
-                await fs.unlink(req.file.path).catch(console.error);
-            }
-        }
-
-        // Clean up temporary file
-        await fs.unlink(req.file.path);
-
     } catch (error) {
-        console.error('Upload processing failed:', {
-            error: error.message,
-            stack: error.stack
-        });
-        if (req.file) {
-            await fs.unlink(req.file.path).catch(err => {
-                console.error('Error deleting temp file:', err);
-            });
-        }
+        console.error('Failed to generate signed URL:', error);
         res.status(500).json({ 
-            error: 'Error processing video',
-            details: error.message 
+            success: false,
+            error: 'Failed to generate upload URL'
         });
     }
 });
 
-// Add OPTIONS handler for preflight
-router.options('/upload', (req, res) => {
+// Add OPTIONS handler for CORS preflight
+router.options('/presign', (req, res) => {
     res.header('Access-Control-Allow-Origin', req.headers.origin);
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -199,6 +70,65 @@ router.delete('/upload/:key', async (req, res) => {
     } catch (error) {
         console.error('Delete error:', error);
         res.status(500).json({ error: 'Failed to delete file' });
+    }
+});
+
+// Route to get a signed download URL
+router.get('/download/:key/url', async (req, res) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    
+    try {
+        const key = decodeURIComponent(req.params.key);
+        const url = await storage.getDownloadUrl(key);
+        res.json({ 
+            success: true,
+            url 
+        });
+    } catch (error) {
+        console.error('Download URL generation error:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to generate download URL' 
+        });
+    }
+});
+
+// Route to stream the file directly
+router.get('/download/:key', async (req, res) => {
+    try {
+        const key = decodeURIComponent(req.params.key);
+        const file = await storage.streamDownload(key);
+
+        // Set headers for file download
+        res.setHeader('Content-Type', file.contentType);
+        res.setHeader('Content-Length', file.contentLength);
+        res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+
+        // Stream the file to the response
+        file.stream.pipe(res).on('error', (error) => {
+            console.error('Streaming error:', error);
+            // Only send error if headers haven't been sent
+            if (!res.headersSent) {
+                res.status(500).json({ 
+                    success: false,
+                    error: 'Failed to stream file' 
+                });
+            }
+        });
+
+    } catch (error) {
+        console.error('Download error:', error);
+        if (error.message === 'File not found') {
+            res.status(404).json({ 
+                success: false,
+                error: 'File not found' 
+            });
+        } else {
+            res.status(500).json({ 
+                success: false,
+                error: 'Failed to download file' 
+            });
+        }
     }
 });
 
