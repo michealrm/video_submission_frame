@@ -32,13 +32,30 @@ hbs.handlebars.registerHelper('math', function(a, operator, b) {
     }
     return 0;
 });
-// Add CORS support
+
+// Default allowed origins if none specified in env
+const DEFAULT_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:8080',
+    'https://form.jotform.com',
+    'https://jotform.com'
+];
+
+// Get allowed origins from env or use defaults
+const getAllowedOrigins = () => {
+    if (process.env.ALLOWED_ORIGINS) {
+        return process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim());
+    }
+    return DEFAULT_ALLOWED_ORIGINS;
+};
+
+// Add CORS support with configurable origins
 app.use(cors({
     origin: function(origin, callback) {
         // Allow requests with no origin (mobile apps, curl)
         if (!origin) return callback(null, true);
         
-        const allowedOrigins = ['https://form.jotform.com', 'http://localhost:3000'];
+        const allowedOrigins = getAllowedOrigins();
         if (allowedOrigins.indexOf(origin) === -1) {
             return callback(new Error('CORS not allowed: ' + origin));
         }
