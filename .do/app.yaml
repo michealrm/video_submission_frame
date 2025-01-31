@@ -4,11 +4,23 @@ services:
     git:
       branch: main
       repo_clone_url: https://github.com/michealrm/videosubmissionframe.git
-    build_command: npm install
-    run_command: npm start
-    http_port: 8080
+    dockerfile_path: Dockerfile
     instance_count: 1
     instance_size_slug: basic-xxs
-    env:
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: STORAGE_ENDPOINT
+        value: https://nyc3.digitaloceanspaces.com
+      - key: STORAGE_ACCESS_KEY
+        value: ${{ secrets.DIGITALOCEAN_SPACES_ACCESS_KEY }}
+      - key: STORAGE_SECRET_KEY
+        value: ${{ secrets.DIGITALOCEAN_SPACES_SECRET_KEY }}
+      - key: STORAGE_BUCKET
+        value: vsf-video-uploads
+      - key: STORAGE_REGION
+        value: nyc3
+      - key: STORAGE_FORCE_PATH_STYLE
+        value: false
       - key: NODE_ENV
         value: production
