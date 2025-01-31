@@ -1,0 +1,9 @@
+version: '3.8'
+
+include:
+  - docker-compose.app.yml
+  - docker-compose.minio.yml
+
+networks:
+  app-network:
+    driver: bridge
