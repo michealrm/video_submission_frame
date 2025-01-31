@@ -310,11 +310,16 @@ class VideoUploader {
                 const eventSourceUrl = `/embed/upload/progress/${uploadId}`;
                 console.log('Creating EventSource connection:', eventSourceUrl);
                 
-                eventSource = new EventSource(eventSourceUrl);
+                // Create EventSource with absolute URL
+                const fullUrl = new URL(eventSourceUrl, window.location.origin);
+                eventSource = new EventSource(fullUrl.toString(), { 
+                    withCredentials: true 
+                });
+
                 let hasReceivedProgress = false;
 
                 eventSource.onopen = () => {
-                    console.log('SSE Connection opened');
+                    console.log('SSE Connection opened successfully');
                     hasReceivedProgress = false;
                     lastProgressTime = Date.now();
                 };
@@ -343,7 +348,12 @@ class VideoUploader {
 
                 eventSource.onerror = (error) => {
                     console.error('EventSource error:', error);
-                    handleError(new Error('Connection lost'));
+                    if (eventSource.readyState === EventSource.CLOSED) {
+                        console.log('EventSource connection closed');
+                        handleError(new Error('Connection closed'));
+                    } else {
+                        handleError(new Error('Connection error'));
+                    }
                 };
 
                 // Set up progress timeout checker

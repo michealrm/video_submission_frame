@@ -44,21 +44,30 @@ router.get('/upload/progress/:id', (req, res) => {
     const requestedId = req.params.id;
     console.log('Progress connection requested for ID:', requestedId);
 
-    // Disable compression and buffering
-    if (res.compress) res.compress = false;
-    res.setHeader('X-Accel-Buffering', 'no');
-    res.setHeader('Transfer-Encoding', 'chunked');
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // Set proper headers for SSE with correct CORS
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+        'Access-Control-Allow-Origin': req.headers.origin || '*',
+        'Access-Control-Allow-Credentials': 'true'
+    });
 
-    // Send initial connection event
+    // Keep connection alive
+    const keepAlive = setInterval(() => {
+        res.write(': keepalive\n\n');
+        if (res.flush) res.flush();
+    }, 2000);
+
+    // Send immediate response to establish connection
+    res.write('retry: 1000\n\n');
+    
     const writeEvent = (data) => {
         const event = `data: ${JSON.stringify(data)}\n\n`;
         console.log('Writing SSE event:', event);
         res.write(event);
-        res.flush?.();
+        if (res.flush) res.flush();
     };
 
     writeEvent({ phase: 'connected', percentage: 0 });
@@ -80,6 +89,7 @@ router.get('/upload/progress/:id', (req, res) => {
     };
 
     const cleanup = () => {
+        clearInterval(keepAlive);
         storage.removeListener('progress', progressHandler);
         console.log('Cleaned up progress handler for ID:', requestedId);
     };
