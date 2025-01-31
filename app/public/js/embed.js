@@ -184,6 +184,9 @@ class VideoUploader {
         this.progressBar.style.display = 'none';
         this.validationMessage.textContent = '';
         this.progressBar.value = 0;
+        // Add back the file input click handler
+        // this.uploadBtn.removeEventListener('click', this.fileInputClickHandler);
+        this.uploadBtn.addEventListener('click', this.fileInputClickHandler);
 
         if (this.alertBox) {
             this.alertBox.style.display = 'none';
@@ -192,10 +195,6 @@ class VideoUploader {
         this.notifyParent({
             type: 'cancelled'
         });
-
-        // Add back the file input click handler
-        this.uploadBtn.removeEventListener('click', this.fileInputClickHandler);
-        this.uploadBtn.addEventListener('click', this.fileInputClickHandler);
     }
 
     showStatus(message, persistent = false) {
@@ -475,13 +474,13 @@ class VideoUploader {
         // Make the “Start Over” button not open file dialog
         this.uploadBtn.onclick = () => {
             // Reset everything, let user manually click “Upload Video” later if desired
+            this.resetUpload();
+            // this.uploadBtn.addEventListener('click', this.fileInputClickHandler);
             this.statusMessage.style.display = 'none';
             this.controlButtons.style.display = 'none';
             this.progressBar.style.display = 'none';
             this.videoPreview.style.display = 'none';
             this.videoInfo.style.display = 'none';
-            this.resetUpload();
-            this.uploadBtn.addEventListener('click', this.fileInputClickHandler);
             this.uploadBtn.textContent = `Upload Video (Max ${this.maxDurationFormatted})`;
         };
     }
