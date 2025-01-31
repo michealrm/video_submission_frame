@@ -22,9 +22,9 @@ services:
       - key: STORAGE_ENDPOINT
         value: https://nyc3.digitaloceanspaces.com
       - key: STORAGE_ACCESS_KEY
-        value: ${{ secrets.DIGITALOCEAN_SPACES_ACCESS_KEY }}
+        value: "$SPACES_ACCESS_KEY"
       - key: STORAGE_SECRET_KEY
-        value: ${{ secrets.DIGITALOCEAN_SPACES_SECRET_KEY }}
+        value: "$SPACES_SECRET_KEY"
       - key: STORAGE_BUCKET
         value: vsf-video-uploads
       - key: STORAGE_REGION
