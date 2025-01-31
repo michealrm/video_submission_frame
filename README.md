@@ -1,6 +1,4 @@
-# README.md
-
-# Video Upload Module
+# Video Submission Frame
 
 A lightweight, embeddable video upload module with built-in duration validation. Designed to work seamlessly with form builders like JotForm or as a standalone component.
 
