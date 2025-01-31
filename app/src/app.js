@@ -61,8 +61,14 @@ app.use(cors({
         }
         return callback(null, true);
     },
+    credentials: true,
     methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Length', 'Content-Type']
 }));
+
+// Add preflight OPTIONS handling
+app.options('*', cors());
 
 // Serve static files
 app.use(express.static('public'));

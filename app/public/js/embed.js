@@ -257,6 +257,7 @@ class VideoUploader {
             console.log('Sending upload request...');
             const response = await fetch('/embed/upload', {
                 method: 'POST',
+                credentials: 'include',
                 body: formData
             });
 

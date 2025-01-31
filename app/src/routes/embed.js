@@ -90,6 +90,12 @@ router.get('/upload/progress/:id', (req, res) => {
 });
 
 router.post('/upload', upload.single('video'), async (req, res) => {
+    // Add CORS headers
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    
     console.log('Using storage type:', storage.config.type);
     console.log('Upload request received:', {
         headers: req.headers,
@@ -100,8 +106,6 @@ router.post('/upload', upload.single('video'), async (req, res) => {
         } : 'No file'
     });
 
-    res.header('Access-Control-Allow-Origin', '*');
-    
     try {
         console.log('Processing upload request...');
         if (!req.file) {
@@ -164,6 +168,15 @@ router.post('/upload', upload.single('video'), async (req, res) => {
             details: error.message 
         });
     }
+});
+
+// Add OPTIONS handler for preflight
+router.options('/upload', (req, res) => {
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    res.sendStatus(200);
 });
 
 router.delete('/upload/:key', async (req, res) => {
