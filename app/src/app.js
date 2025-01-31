@@ -36,7 +36,7 @@ hbs.handlebars.registerHelper('math', function(a, operator, b) {
 // Default allowed origins if none specified in env
 const DEFAULT_ALLOWED_ORIGINS = [
     'http://localhost:3000',
-    'http://localhost:8080',
+    'https://lionfish-app-qsoao.ondigitalocean.app',
     'https://form.jotform.com',
     'https://jotform.com'
 ];
