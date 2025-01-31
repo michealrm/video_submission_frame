@@ -29,6 +29,8 @@ services:
         value: vsf-video-uploads
       - key: STORAGE_REGION
         value: nyc3
+      - key: STORAGE_REGION
+        value: s3
       - key: STORAGE_FORCE_PATH_STYLE
         value: false
       - key: NODE_ENV
