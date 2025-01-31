@@ -6,30 +6,23 @@ An embeddable video upload module to validate recording duration then upload to 
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/micheal/express-form-app.git
-cd express-form-app
+git clone https://github.com/michealrm/video_submission_frame.git
+cd video_submission_frame
 ```
 
-2. Install dependencies:
+
+2. Run it locally using
 ```bash
-npm install
+docker compose up
 ```
 
-3. Create uploads directory:
-```bash
-mkdir uploads
-```
+## Impl Notes
 
-4. Configure environment:
-```bash
-cp .env.example .env
-# Edit .env with your settings
-```
+1. You can fork the repo and deploy to digitalocean using github actions. 
 
-5. Start the server:
-```bash
-npm start
-```
+2. Progress bars are supported through server side events (SSE) / XHR emitted to the client on `/embed/upload/progress`. Check the S3Adapter, embed route, and public embed.js for more info.
+
+3. Uploads are done on the client by a s3 signed URL issues by the server's `/signed`. This avoids the server being the middleman for large file transfer. The issue there wasn't memory usage, but network latency. It look really long to upload before.
 
 ## Usage as Embedded Component
 
@@ -46,72 +39,8 @@ Add the video upload module to your HTML:
 </iframe>
 ```
 
-### Handling Upload Events
-
-Add an event listener to receive upload status:
-
-```javascript
-window.addEventListener('message', function(event) {
-    if (event.data.type === 'videoUpload') {
-        const data = event.data.data;
-        
-        if (data.success) {
-            console.log('Upload successful:', {
-                file: data.file,
-                duration: data.duration
-            });
-        } else {
-            console.error('Upload failed:', data.error);
-        }
-    }
-});
-```
-
-### Response Format
-
-Successful upload:
-```javascript
-{
-    type: 'videoUpload',
-    data: {
-        success: true,
-        file: 'filename.mp4',
-        duration: 120 // seconds
-    }
-}
-```
-
-Error response:
-```javascript
-{
-    type: 'videoUpload',
-    data: {
-        error: 'Error message here'
-    }
-}
-```
-
 ## Configuration
 
 ### Allowed Origins
 
-Edit the CORS settings in `src/routes/embed.js`:
-
-```javascript
-const ALLOWED_ORIGINS = [
-    'https://form.jotform.com',
-    'https://your-domain.com'
-];
-```
-
-### Video Settings
-
-Default settings in `src/routes/embed.js`:
-- Max duration: 300 seconds (5 minutes)
-- Max file size: 512MB
-- Supported formats: MP4, MOV, AVI, 3GPP, WebM
-
-##  Considerations
-
-1. Configure CORS properly for production
-2. Regular cleanup of uploads directory
+Edit CORS using the env var `ALLOWED_ORIGINS`
