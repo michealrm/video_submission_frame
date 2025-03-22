@@ -22,7 +22,7 @@ docker compose up
 
 2. Progress bars are supported through server side events (SSE) / XHR emitted to the client on `/embed/upload/progress`. Check the S3Adapter, embed route, and public embed.js for more info.
 
-3. Uploads are done on the client by a s3 signed URL issues by the server's `/signed`. This avoids the server being the middleman for large file transfer. The issue there wasn't memory usage, but network latency. It look really long to upload before.
+3. Uploads are done on the client by a s3 signed URL issues by the endpoint `/signed`. This avoids the server being the middleman for large file transfer. The issue there wasn't memory usage, but network latency. It look really long to upload before.
 
 ## Usage as Embedded Component
 
